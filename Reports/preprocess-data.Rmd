@@ -1,0 +1,194 @@
+---
+title: "Preprocess Lanner's data"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+rmarkdown::render('preprocess-data.Rmd')
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(reshape2)
+library(readr)
+library(stringr)
+library(broom)
+```
+
+
+# Cell meta-data
+
+Load sample/data relationship (cell meta-data) and remove columns with no information.
+```{r loadSdrf}
+cell.meta <- read_tsv('../extdata/E-MTAB-3929.sdrf.txt', progress = FALSE)
+colnames(cell.meta) <- c(
+    'cell',                   # "Source Name",
+    'ena.sample',             # "Comment[ENA_SAMPLE]",
+    'biosd.sample',           # "Comment[BioSD_SAMPLE]",
+    'single.well.quality',    # "Characteristics[single cell well quality]",
+    'material.type',          # "Material Type",
+    'cell.idx',               # "Characteristics[cell]",
+    'organism',               # "Characteristics[organism]",
+    'org.part',               # "Characteristics[organism part]",
+    'individual',             # "Characteristics[individual]",
+    'dev.stage',              # "Characteristics[developmental stage]",
+    'treatment',              # "Characteristics[treatment]",
+    'phenotype',              # "Characteristics[phenotype]",
+    'lineage',                # "Characteristics[inferred lineage]",
+    'te.subpop',              # "Characteristics[inferred trophectoderm subpopulation]",
+    'pseudotime',             # "Characteristics[inferred pseudo-time]",
+    'protocol.ref.1',         # "Protocol REF",
+    'protocol.ref.2',         # "Protocol REF",
+    'performer.1',            # "Performer",
+    'extract.name',           # "Extract Name",
+    'library.layout',         # "Comment[LIBRARY_LAYOUT]",
+    'library.selection',      # "Comment[LIBRARY_SELECTION]",
+    'library.source',         # "Comment[LIBRARY_SOURCE]",
+    'library.strategy',       # "Comment[LIBRARY_STRATEGY]",
+    'protocol.ref.3',         # "Protocol REF",
+    'performer.2',            # "Performer",
+    'assay',                  # "Assay Name",
+    'tech.type',              # "Technology Type",
+    'ena.exp',                # "Comment[ENA_EXPERIMENT]",
+    'scan.name',              # "Scan Name",
+    'file.name',              # "Comment[SUBMITTED_FILE_NAME]",
+    'ena.run',                # "Comment[ENA_RUN]",
+    'fastq.uri',              # "Comment[FASTQ_URI]",
+    'protocol.ref.4',         # "Protocol REF",
+    'array.data.file.1',      # "Derived Array Data File",
+    'arrayexpress.ftp.1',     # "Comment [Derived ArrayExpress FTP file]",
+    'protocol.ref.5',         # "Protocol REF",
+    'array.data.file.2',      # "Derived Array Data File",
+    'arrayexpress.ftp.2',     # "Comment [Derived ArrayExpress FTP file]",
+    'protocol.ref.6',         # "Protocol REF",
+    'array.data.file.3',      # "Derived Array Data File",
+    'arrayexpress.ftp.3',     # "Comment [Derived ArrayExpress FTP file]",
+    'protocol.ref.7',         # "Protocol REF",
+    'array.data.file.4',      # "Derived Array Data File",
+    'arrayexpress.ftp.4',     # "Comment [Derived ArrayExpress FTP file]",
+    'cell.id')                # "Factor Value[cell]")
+cell.meta <- cell.meta %>%
+    select(-c(cell.idx, material.type, organism, org.part,
+              extract.name, phenotype, assay, scan.name,
+              single.well.quality,
+              protocol.ref.1, protocol.ref.2, protocol.ref.3,
+              protocol.ref.4, protocol.ref.5, protocol.ref.6,
+              protocol.ref.7, performer.1, performer.2,
+              array.data.file.1, array.data.file.2,
+              array.data.file.3, array.data.file.4,
+              arrayexpress.ftp.1, arrayexpress.ftp.2,
+              arrayexpress.ftp.3, arrayexpress.ftp.4,
+              library.layout, library.selection, library.source,
+              library.strategy, tech.type, file.name)) %>%
+    mutate(
+        cell = factor(cell),
+        individual = factor(individual),
+        treatment = factor(treatment),
+        lineage = factor(str_replace(lineage, 'not applicable', 'none')),
+        te.subpop = factor(str_replace(te.subpop, 'not applicable', 'none')),
+        ena.exp = factor(ena.exp),
+        dev.stage = factor(str_replace(dev.stage, 'embryonic day ', 'E'))) %>%
+    rename(embryonic.day = dev.stage)
+cell.meta
+```
+
+
+# RNA-seq counts
+
+Load counts.
+```{r loadCounts}
+system.time(counts <- read_tsv('../extdata/counts.txt', progress = FALSE))
+colnames(counts)[1] <- 'gene'
+log.expr <- log10(as.matrix(counts[,2:ncol(counts)]) + 1)
+dimnames(log.expr) <- list(gene = counts$gene, cell = colnames(counts)[2:ncol(counts)])
+```
+
+Melt counts to long format.
+```{r meltExpr}
+expr.m <-
+    melt(log.expr, value.name = 'log.x') %>%
+    mutate(cell = factor(cell, levels = levels(cell.meta$cell)))
+```
+
+Investigate gene mean vs. variance
+```{r investigateExpr}
+gene.meta <-
+    expr.m %>%
+    group_by(gene) %>%
+    summarise(mean = mean(log.x), var = var(log.x)) %>%
+    arrange(-var / mean)
+head(gene.meta)
+sample_n(gene.meta, 10)
+ggplot(gene.meta, aes(x = mean, y = var)) +
+    geom_point(alpha = .1) +
+    scale_x_log10() +
+    scale_y_log10() +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'gene-mean-var.pdf'))
+```
+
+
+# Cell size estimates
+
+Calculate cell size estimates.
+```{r cellSizes}
+calc.cell.sizes <- function(.data) {
+    gene.means <-
+        .data %>%
+        group_by(gene) %>%
+        summarise(gene.mean = mean(log.x))
+    .data %>%
+        left_join(gene.means) %>%
+        group_by(cell) %>%
+        summarise(size = median(log.x - gene.mean))
+}
+cell.sizes <- calc.cell.sizes(expr.m)
+sample_n(cell.sizes, 15)
+ggplot(cell.sizes %>% left_join(cell.meta), aes(x = size, colour = lineage)) +
+    geom_density() +
+    geom_rug(alpha = .3) +
+    scale_colour_few() +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'cell-sizes.pdf'))
+```
+
+Adjust expression by cell size estimates.
+```{r adjExpr}
+expr.m <-
+    expr.m %>%
+    left_join(cell.sizes) %>%
+    mutate(log.x.adj = log.x - size) %>%
+    select(-size)
+```
+
+
+# ANOVA
+
+Analysis of variance.
+```{r aov}
+.data <- expr.m %>% left_join(select(cell.meta, cell, embryonic.day, lineage))
+embryonic.day.aov <-
+    .data %>%
+    group_by(gene) %>%
+    do(tidy(aov(log.x.adj ~ lineage, .))) %>%
+    ungroup() %>%
+    arrange(p.value)
+embryonic.day.aov %>% filter(p.value <= .05)
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```

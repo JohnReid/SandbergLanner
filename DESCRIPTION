@@ -1,0 +1,9 @@
+Package: Lanner
+Title: Analyses Sandberg and Lanner's human preimplantation embryo data
+Version: 0.0.0.9000
+Authors@R: John Reid <johnbaronreid@gmail.com> [aut, cre]
+Description: Analyses Sandberg and Lanner's human preimplantation embryo data
+Depends: R (>= 3.2.5)
+License: MIT
+Encoding: UTF-8
+LazyData: true
