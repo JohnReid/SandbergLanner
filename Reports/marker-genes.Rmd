@@ -1,0 +1,72 @@
+---
+title: "Examine marker genes"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+devtools::load_all('..')
+rmarkdown::render('preprocess-data.Rmd')
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+```
+
+
+# Marker genes
+
+Define marker genes
+```{r marker}
+marker.1 <- factor(c('SOX2', 'TDGF1', 'PDGFRA'), levels = gene.levels)
+marker.2 <- factor(c('GATA2', 'GATA3', 'DAB2') , levels = gene.levels)
+```
+
+Plot distribution of expression values to determine thresholds of high
+expression.
+```{r plotMarker}
+ggplot(expr.m %>% filter(gene %in% marker.1 | gene %in% marker.2),
+       aes(x = log.x.adj)) +
+    geom_density() +
+    geom_rug() +
+    facet_wrap(~ gene) +
+    theme_few()
+```
+
+Choose thresholds and evaluate which cells exceed them.
+```{r chooseThresholds}
+thresholds <-
+    data.frame(
+        gene = factor(c('SOX2', 'TDGF1', 'PDGFRA', 'GATA2', 'GATA3', 'DAB2'),
+                      levels = gene.levels),
+        threshold = c(1.2, 1, 1.2, 2, 2, 2)) %>%
+    mutate(marker.1 = gene %in% marker.1) %>%
+    left_join(expr.m) %>%
+    mutate(on = log.x.adj >= threshold)
+```
+
+Examine each cell for markers.
+```{r cellMarkers}
+markers.by.cell <-
+    thresholds %>%
+    group_by(cell) %>%
+    summarise(marker.1 = sum(ifelse(marker.1, 1, -1) * ifelse(on, 1, -1)))
+ggplot(markers.by.cell, aes(x = marker.1)) +
+    geom_histogram() +
+    theme_few()
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
