@@ -11,7 +11,7 @@ output: html_document
 # Execute this section to render this document.
 #
 devtools::load_all('..')
-rmarkdown::render('preprocess-data.Rmd')
+rmarkdown::render('marker-genes.Rmd')
 ```
 
 Load libraries.
@@ -25,42 +25,91 @@ library(ggthemes)
 
 Define marker genes
 ```{r marker}
-marker.1 <- factor(c('SOX2', 'TDGF1', 'PDGFRA'), levels = gene.levels)
-marker.2 <- factor(c('GATA2', 'GATA3', 'DAB2') , levels = gene.levels)
+markers <- data.frame(
+    gene = factor(
+        c(
+            'NANOG',   # EPI
+            'NODAL',   # EPI
+            'SOX2',    # EPI
+            'DPPA5',   # EPI
+            'GDF3',    # EPI
+            'PRDM14',  # EPI
+            'TDGF1',   # EPI
+            'GATA4',   # PE
+            'COL4A1',  # PE
+            'FN1',     # PE
+            'FGFR2',   # PE
+            'LAMA4',   # PE
+            'HNF1B',   # PE
+            'PDGFRA',  # PE
+            'SOX17',   # PE
+            'GATA6',
+            'GATA2',   # TE
+            'GATA3',   # TE
+            'DAB2'),   # TE
+        levels = gene.levels),
+    lineage = factor(
+        c(
+            'EPI',
+            'EPI',
+            'EPI',
+            'EPI',
+            'EPI',
+            'EPI',
+            'EPI',
+            'PE',
+            'PE',
+            'PE',
+            'PE',
+            'PE',
+            'PE',
+            'PE',
+            'PE',
+            NA,
+            'TE',
+            'TE',
+            'TE')))
+# devtools::use_data(markers, overwrite = TRUE)
 ```
 
 Plot distribution of expression values to determine thresholds of high
 expression.
 ```{r plotMarker}
-ggplot(expr.m %>% filter(gene %in% marker.1 | gene %in% marker.2),
-       aes(x = log.x.adj)) +
+marker.expr <- expr.m %>% filter(gene %in% markers$gene)
+ggplot(marker.expr, aes(x = log.rpkm.adj)) +
     geom_density() +
     geom_rug() +
+    ylim(0, 3) +
     facet_wrap(~ gene) +
     theme_few()
 ```
 
-Choose thresholds and evaluate which cells exceed them.
-```{r chooseThresholds}
-thresholds <-
-    data.frame(
-        gene = factor(c('SOX2', 'TDGF1', 'PDGFRA', 'GATA2', 'GATA3', 'DAB2'),
-                      levels = gene.levels),
-        threshold = c(1.2, 1, 1.2, 2, 2, 2)) %>%
-    mutate(marker.1 = gene %in% marker.1) %>%
-    left_join(expr.m) %>%
-    mutate(on = log.x.adj >= threshold)
+Plot expression against inferred pseudotimes.
+```{r exprVsPseudo}
+ggplot(marker.expr %>% left_join(cell.meta),
+       aes(x = pseudotime, y = log.rpkm.adj, colour = lineage)) +
+    geom_point(alpha = .5) +
+    facet_wrap(~ gene) +
+    scale_colour_few() +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'marker-profiles.pdf'))
 ```
 
-Examine each cell for markers.
-```{r cellMarkers}
-markers.by.cell <-
-    thresholds %>%
-    group_by(cell) %>%
-    summarise(marker.1 = sum(ifelse(marker.1, 1, -1) * ifelse(on, 1, -1)))
-ggplot(markers.by.cell, aes(x = marker.1)) +
-    geom_histogram() +
-    theme_few()
+
+# Most variable genes
+
+
+Get the 500 most variable genes according to Sandberg & Lanner.
+```{r mostVar}
+most.var.genes <- filter(gene.variation, rank <= 500)$gene
+stopifnot(500 == length(most.var.genes))
+# devtools::use_data(most.var.genes)
+```
+
+Which marker genes are in the 500 most variable genes?
+```{r markerMostVar}
+markers %>% filter(gene %in% most.var.genes)
+markers %>% filter(! gene %in% most.var.genes)
 ```
 
 
