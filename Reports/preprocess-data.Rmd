@@ -29,11 +29,13 @@ library(broom)
 
 Load sample/data relationship (cell meta-data) and remove columns with no information.
 ```{r loadSdrf}
+extdata <- file.path('..', 'extdata')
 capture.levels <- c('E3', 'E4', 'E4.late', 'E5.early', 'E5', 'E6', 'E7')
 obs.times <- data.frame(
     capture = factor(capture.levels, levels = capture.levels),
     obstime = c(3, 4, 4.21, 4.79, 5, 6, 7))
-cell.meta <- read_tsv('../extdata/E-MTAB-3929.sdrf.txt', progress = FALSE)
+cell.meta <- read_tsv(file.path(extdata, 'E-MTAB-3929.sdrf.txt'),
+                      progress = FALSE)
 colnames(cell.meta) <- c(
     'cell',                   # "Source Name",
     'ena.sample',             # "Comment[ENA_SAMPLE]",
@@ -161,6 +163,17 @@ ggsave(file.path('..', 'Plots', 'gene-mean-var.pdf'))
 ```
 
 
+# Most variable genes
+
+Load the information on the 500 most variable genes.
+```{r mostVariable}
+most.var.path <- file.path(extdata, 'stats.mat.excl_pval.txt')
+gene.variation <-
+    readr::read_tsv(most.var.path) %>%
+    mutate(gene = factor(gene, levels = gene.levels))
+```
+
+
 # Cell size estimates
 
 Calculate cell size estimates.
@@ -220,6 +233,7 @@ devtools::use_data(cell.meta, overwrite = TRUE)
 devtools::use_data(cell.levels, overwrite = TRUE)
 devtools::use_data(gene.meta, overwrite = TRUE)
 devtools::use_data(gene.levels, overwrite = TRUE)
+devtools::use_data(gene.variation, overwrite = TRUE)
 devtools::use_data(cell.sizes, overwrite = TRUE)
 devtools::use_data(expr.m, overwrite = TRUE)
 devtools::use_data(gene.aov, overwrite = TRUE)
@@ -233,6 +247,7 @@ object.size(log.expr.adj)
 processed.dir <- file.path('..', 'extdata', 'Processed')
 readr::write_csv(cell.meta, file.path(processed.dir, 'cell-meta.csv'))
 readr::write_csv(gene.meta, file.path(processed.dir, 'gene-meta.csv'))
+readr::write_csv(gene.variation, file.path(processed.dir, 'gene-variation.csv'))
 readr::write_csv(cell.sizes, file.path(processed.dir, 'cell-sizes.csv'))
 readr::write_csv(gene.aov, file.path(processed.dir, 'gene-aov.csv'))
 readr::write_csv(log.expr.adj, file.path(processed.dir, 'log-expr-adj.csv'))
