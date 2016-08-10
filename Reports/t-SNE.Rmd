@@ -1,0 +1,104 @@
+---
+title: "t-SNE dimensionality reduction"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+devtools::load_all('..')
+rmarkdown::render('t-SNE.Rmd')
+```
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+library(tsne)
+```
+
+
+# t-SNE
+
+Run t-SNE on the expression data to embed the genes and the cells. See if
+we can recreate Figure 1E from paper.
+```{r tSNE}
+# Create expression matrix
+most.var.log.rpkm <- acast(filter(expr.m, gene %in% most.var.genes),
+                           gene ~ cell,
+                           value.var = 'log.rpkm')
+# Parameters
+initial.dims <- 100
+perplexity.factor <- .2
+# perplexity <- 10
+max.iters <- 1000
+#
+# Function to process tSNE output
+#
+tsne.as.df <- function(tsne) {
+    res <- as.data.frame(tsne)
+    colnames(res) <- stringr::str_c('tsne.', 1:ncol(res))
+    res
+}
+#
+# Function to perform tSNE as per Daniel's email
+#
+do.tsne <- function(mat, ...) {
+    pca <- prcomp(mat, scale=T, center=T)
+    pca.basis <- pca[['x']][,1:50]
+    # dim(pca.basis)
+    tsne.as.df(tsne(
+        pca.basis,
+        whiten = FALSE,
+        ...))
+}
+#
+# Analyse the cells
+#
+cells.embedding <-
+    do.tsne(
+        t(most.var.log.rpkm),
+        initial_dims = initial.dims,
+        perplexity = 305.8,
+        max_iter = max.iters) %>%
+    mutate(cell = factor(colnames(most.var.log.rpkm), cell.levels)) %>%
+    left_join(cell.meta)
+ggplot(cells.embedding, aes(x = tsne.1, y = tsne.2, colour = capture)) +
+    geom_point(alpha = .9, size = 2) +
+    scale_colour_few() +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'tSNE-cells.pdf'))
+#
+# Analyse the genes
+#
+genes.embedding <-
+    do.tsne(
+        most.var.log.rpkm,
+        initial_dims = initial.dims,
+        max_iter = max.iters) %>%
+    mutate(gene = factor(rownames(most.var.log.rpkm), gene.levels)) %>%
+    left_join(gene.meta)
+ggplot(genes.embedding,
+       aes(x = tsne.1, y = tsne.2,
+           label = gene, colour = gene %in% markers$gene)) +
+    geom_label(alpha = .6) +
+    scale_colour_few() +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'tSNE-genes.pdf'))
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
