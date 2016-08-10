@@ -1,3 +1,9 @@
+# Analysis of Sandberg-Lanner gene atlas
+
+This repository contains code to analyse the gene expression data from Sandberg
+and Lanner's 2016 paper.
+
+
 ## Files
 
 These files were downloaded from http://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-3929/:
