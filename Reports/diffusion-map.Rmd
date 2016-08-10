@@ -1,0 +1,110 @@
+---
+title: "Create diffusion map"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+devtools::load_all('..')
+rmarkdown::render('diffusion-map.Rmd')
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+library(destiny)
+library(rgl)
+```
+
+
+# Diffusion map
+
+Create a diffusion map for most cells in stage E5.early or later (excluding
+6 outliers).
+```{r diffusionMap}
+# Outliers in the previously created diffusion map
+outliers <- c('E5.41.3306', 'E5.6.361', 'E5.6.362',
+              'E5.6.363',   'E5.6.365', 'E5.6.382')
+# Create expression matrix
+most.var.log.rpkm <- acast(filter(expr.m, gene %in% most.var.genes),
+                           gene ~ cell,
+                           value.var = 'log.rpkm')
+#
+# Create annotated data frame with cells for rownames
+#
+create.pheno <- function(meta) {
+    .data <- as.data.frame(meta)
+    rownames(.data) <- meta$cell
+    AnnotatedDataFrame(.data)
+}
+later.cell.meta <-
+    cell.meta %>%
+    filter(
+        capture %in% c('E5.early', 'E5', 'E6', 'E7'),
+        ! cell %in% outliers)
+phenoData <- create.pheno(later.cell.meta)
+eset <- ExpressionSet(
+    most.var.log.rpkm[,rownames(phenoData)],
+    phenoData = phenoData)
+dif <- DiffusionMap(eset)
+#
+# Get the diffusion coordinates
+#
+later.cell.meta[['DC.1']] <- eigenvectors(dif)[,1]
+later.cell.meta[['DC.2']] <- eigenvectors(dif)[,2]
+later.cell.meta[['DC.3']] <- eigenvectors(dif)[,3]
+```
+
+Examine marker expression in the diffusion map
+```{r markerExpr}
+marker.expr <- expr.m %>% filter(gene %in% markers$gene)
+later.expr <-
+    later.cell.meta %>%
+    left_join(marker.expr)
+ggplot(later.expr, aes(x = DC.1, y = DC.2, colour = log.rpkm)) +
+    geom_point() +
+    facet_wrap(~ gene) +
+    theme_few()
+ggplot(later.expr, aes(x = DC.1, y = DC.3, colour = log.rpkm)) +
+    geom_point() +
+    facet_wrap(~ gene) +
+    theme_few()
+ggplot(later.expr, aes(x = DC.2, y = DC.3, colour = log.rpkm)) +
+    geom_point() +
+    facet_wrap(~ gene) +
+    theme_few()
+```
+
+Get the cells that are outliers (see above for values)
+```{r eval = FALSE}
+(later.cell.meta %>% filter(DC.2 > .32))$cell
+```
+
+
+Plot the diffusion map.
+```{r plotDif}
+qplot(DC1, DC2, data = dif, colour = capture)
+qplot(DC1, DC3, data = dif, colour = capture)
+qplot(DC2, DC3, data = dif, colour = capture)
+```
+
+Examine diffusion map in 3D
+```{r plot3D}
+plot3d(eigenvectors(dif)[,1:3])
+# now use your mouse to rotate the plot in the window
+rgl.close()
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
