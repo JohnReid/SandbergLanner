@@ -14,6 +14,10 @@ devtools::load_all('..')
 rmarkdown::render('diffusion-map.Rmd')
 ```
 
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
 Load libraries.
 ```{r loadPkgs, message = FALSE}
 library(ggplot2)
@@ -61,6 +65,13 @@ later.cell.meta[['DC.2']] <- eigenvectors(dif)[,2]
 later.cell.meta[['DC.3']] <- eigenvectors(dif)[,3]
 ```
 
+Plot the diffusion map.
+```{r plotDif}
+qplot(DC1, DC2, data = dif, colour = capture) + theme_few() + scale_colour_few()
+qplot(DC1, DC3, data = dif, colour = capture) + theme_few() + scale_colour_few()
+qplot(DC2, DC3, data = dif, colour = capture) + theme_few() + scale_colour_few()
+```
+
 Examine marker expression in the diffusion map
 ```{r markerExpr}
 marker.expr <- expr.m %>% filter(gene %in% markers$gene)
@@ -81,21 +92,13 @@ ggplot(later.expr, aes(x = DC.2, y = DC.3, colour = log.rpkm)) +
     theme_few()
 ```
 
-Get the cells that are outliers (see above for values)
-```{r eval = FALSE}
+```{r echo = FALSE, eval = FALSE}
+# Get the cells that are outliers (see above for values)
 (later.cell.meta %>% filter(DC.2 > .32))$cell
 ```
 
-
-Plot the diffusion map.
-```{r plotDif}
-qplot(DC1, DC2, data = dif, colour = capture)
-qplot(DC1, DC3, data = dif, colour = capture)
-qplot(DC2, DC3, data = dif, colour = capture)
-```
-
 Examine diffusion map in 3D
-```{r plot3D}
+```{r plot3D, eval = FALSE}
 plot3d(eigenvectors(dif)[,1:3])
 # now use your mouse to rotate the plot in the window
 rgl.close()

@@ -76,6 +76,9 @@ ggplot(cells.embedding, aes(x = tsne.1, y = tsne.2, colour = capture)) +
     scale_colour_few() +
     theme_few()
 ggsave(file.path('..', 'Plots', 'tSNE-cells.pdf'))
+ggplot(cells.embedding, aes(x = tsne.1, y = tsne.2, colour = pseudotime)) +
+    geom_point(alpha = .9, size = 2) +
+    theme_few()
 #
 # Analyse the genes
 #

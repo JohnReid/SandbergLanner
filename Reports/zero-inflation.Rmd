@@ -14,6 +14,10 @@ devtools::load_all('..')
 rmarkdown::render('zero-inflation.Rmd')
 ```
 
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
 Load libraries.
 ```{r loadPkgs, message = FALSE}
 library(ggplot2)
