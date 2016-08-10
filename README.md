@@ -1,7 +1,8 @@
 # Analysis of Sandberg-Lanner gene atlas
 
 This repository contains code to analyse the gene expression data from Sandberg
-and Lanner's 2016 paper.
+and Lanner's 2016
+[paper](http://www.cell.com/cell/abstract/S0092-8674(16)30280-X).
 
 
 ## Files
