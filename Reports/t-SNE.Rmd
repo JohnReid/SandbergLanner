@@ -26,8 +26,6 @@ library(tsne)
 ```
 
 
-# t-SNE
-
 Run t-SNE on the expression data to embed the genes and the cells. See if
 we can recreate Figure 1E from paper.
 ```{r tSNE}
@@ -60,9 +58,13 @@ do.tsne <- function(mat, ...) {
         whiten = FALSE,
         ...))
 }
-#
-# Analyse the cells
-#
+```
+
+
+# Cells
+
+Embed the cells
+```{r embedCells}
 cells.embedding <-
     do.tsne(
         t(most.var.log.rpkm),
@@ -71,24 +73,41 @@ cells.embedding <-
         max_iter = max.iters) %>%
     mutate(cell = factor(colnames(most.var.log.rpkm), cell.levels)) %>%
     left_join(cell.meta)
+```
+
+Plot the cells' embedding.
+```{r plotCellEmbedding}
 ggplot(cells.embedding, aes(x = tsne.1, y = tsne.2, colour = capture)) +
     geom_point(alpha = .9, size = 2) +
     scale_colour_few() +
     theme_few()
 ggsave(file.path('..', 'Plots', 'tSNE-cells.pdf'))
+```
+
+Plot the cells' embedding coloured by pseudotime.
+```{r plotCellEmbedPseudotime}
 ggplot(cells.embedding, aes(x = tsne.1, y = tsne.2, colour = pseudotime)) +
     geom_point(alpha = .9, size = 2) +
     theme_few()
-#
-# Analyse the genes
-#
+```
+
+
+# Genes
+
+Embed the genes
+```{r embedGenes}
 genes.embedding <-
     do.tsne(
         most.var.log.rpkm,
         initial_dims = initial.dims,
+        perplexity = 20,
         max_iter = max.iters) %>%
     mutate(gene = factor(rownames(most.var.log.rpkm), gene.levels)) %>%
     left_join(gene.meta)
+```
+
+Plot the genes' embedding.
+```{r plotGenesEmbed}
 ggplot(genes.embedding,
        aes(x = tsne.1, y = tsne.2,
            label = gene, colour = gene %in% markers$gene)) +
