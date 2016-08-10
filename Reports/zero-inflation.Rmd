@@ -1,0 +1,56 @@
+---
+title: "Examine zero inflation"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+devtools::load_all('..')
+rmarkdown::render('zero-inflation.Rmd')
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+```
+
+
+Get the 500 most variable genes according to Sandberg & Lanner.
+```{r mostVar}
+most.var.genes <- filter(gene.variation, rank <= 500)$gene
+stopifnot(500 == length(most.var.genes))
+most.var.m <- expr.m %>% filter(gene %in% most.var.genes)
+```
+
+
+# Per-gene
+
+Examine per-gene zero inflation in most variable genes.
+```{r perGene}
+zi.by.gene <-
+    expr.m %>%
+    group_by(gene) %>%
+    summarise(
+        prop.zero = sum(0 == log.rpkm)/n(),
+        mean.rpkm = mean(log.rpkm)) %>%
+    arrange(-prop.zero)
+ggplot(zi.by.gene, aes(x = mean.rpkm, y = prop.zero,
+                       colour = gene %in% most.var.genes, label = gene)) +
+    geom_point(alpha = .5) +
+    geom_smooth() +
+    theme_few()
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
