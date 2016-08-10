@@ -6,12 +6,13 @@ Authors@R: c(person("John", "Reid", role = c("aut", "cre"),
 Description: Analyses Sandberg and Lanner's human preimplantation embryo data
 Depends: R (>= 3.2.5),
     dplyr,
-    reshape2
-Imports:
+    reshape2,
+    stringr
+Suggests:
+    tsne,
     ggplot2,
     ggthemes,
     readr,
-    stringr,
     broom
 License: MIT
 Encoding: UTF-8
