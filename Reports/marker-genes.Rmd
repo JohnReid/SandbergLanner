@@ -14,6 +14,10 @@ devtools::load_all('..')
 rmarkdown::render('marker-genes.Rmd')
 ```
 
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
 Load libraries.
 ```{r loadPkgs, message = FALSE}
 library(ggplot2)
@@ -48,7 +52,7 @@ markers <- data.frame(
             'GATA3',   # TE
             'DAB2'),   # TE
         levels = gene.levels),
-    lineage = factor(
+    marker.lineage = factor(
         c(
             'EPI',
             'EPI',
@@ -97,7 +101,6 @@ ggsave(file.path('..', 'Plots', 'marker-profiles.pdf'))
 
 
 # Most variable genes
-
 
 Get the 500 most variable genes according to Sandberg & Lanner.
 ```{r mostVar}

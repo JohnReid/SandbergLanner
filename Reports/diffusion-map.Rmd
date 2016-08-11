@@ -72,29 +72,50 @@ qplot(DC1, DC3, data = dif, colour = capture) + theme_few() + scale_colour_few()
 qplot(DC2, DC3, data = dif, colour = capture) + theme_few() + scale_colour_few()
 ```
 
-Examine marker expression in the diffusion map
+```{r echo = FALSE, eval = FALSE}
+# Get the cells that are outliers (see above for values)
+(later.cell.meta %>% filter(DC.2 > .32))$cell
+```
+
+Examine marker expression in the diffusion map.
 ```{r markerExpr}
-marker.expr <- expr.m %>% filter(gene %in% markers$gene)
+marker.expr <- markers %>% left_join(expr.m)
 later.expr <-
     later.cell.meta %>%
     left_join(marker.expr)
 ggplot(later.expr, aes(x = DC.1, y = DC.2, colour = log.rpkm)) +
-    geom_point() +
-    facet_wrap(~ gene) +
+    geom_point(alpha = .5) +
+    facet_wrap(~ marker.lineage + gene) +
     theme_few()
 ggplot(later.expr, aes(x = DC.1, y = DC.3, colour = log.rpkm)) +
-    geom_point() +
-    facet_wrap(~ gene) +
+    geom_point(alpha = .5) +
+    facet_wrap(~ marker.lineage + gene) +
     theme_few()
 ggplot(later.expr, aes(x = DC.2, y = DC.3, colour = log.rpkm)) +
-    geom_point() +
-    facet_wrap(~ gene) +
+    geom_point(alpha = .5) +
+    facet_wrap(~ marker.lineage + gene) +
     theme_few()
 ```
 
-```{r echo = FALSE, eval = FALSE}
-# Get the cells that are outliers (see above for values)
-(later.cell.meta %>% filter(DC.2 > .32))$cell
+Summarise marker expression in the diffusion map.
+```{r summMarkerExpr}
+gene.means <-
+    marker.expr %>%
+    group_by(gene) %>%
+    summarise(
+        mean.log.rpkm = mean(log.rpkm),
+        sd.log.rpkm = sd(log.rpkm))
+expr.marker.lineage <-
+    marker.expr %>%
+    left_join(gene.means) %>%
+    group_by(cell, marker.lineage) %>%
+    # summarise(log.rpkm = mean((log.rpkm - mean.log.rpkm) / sd.log.rpkm)) %>%
+    summarise(log.rpkm = mean(log.rpkm)) %>%
+    right_join(later.cell.meta)
+ggplot(expr.marker.lineage, aes(x = DC.1, y = DC.2, colour = log.rpkm)) +
+    geom_point(alpha = .5) +
+    facet_wrap(~ marker.lineage) +
+    theme_few()
 ```
 
 Examine diffusion map in 3D

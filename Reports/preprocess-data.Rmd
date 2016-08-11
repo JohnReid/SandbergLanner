@@ -220,7 +220,7 @@ Analysis of variance.
 gene.aov <-
     .data %>%
     group_by(gene) %>%
-    do(tidy(aov(log.rpkm.adj ~ lineage, .))) %>%
+    do(tidy(aov(log.rpkm ~ lineage, .))) %>%
     ungroup() %>%
     arrange(p.value)
 gene.aov %>% filter(p.value <= .05)
@@ -246,6 +246,7 @@ devtools::use_data(gene.aov, overwrite = TRUE)
 Save data in exchangeable format.
 ```{r save}
 log.expr.adj <- dcast(expr.m, gene ~ cell, value.var = 'log.rpkm.adj')
+log.expr     <- dcast(expr.m, gene ~ cell, value.var = 'log.rpkm')
 dim(log.expr.adj)
 object.size(log.expr.adj)
 processed.dir <- file.path('..', 'extdata', 'Processed')
@@ -255,6 +256,7 @@ readr::write_csv(gene.variation, file.path(processed.dir, 'gene-variation.csv'))
 readr::write_csv(cell.sizes, file.path(processed.dir, 'cell-sizes.csv'))
 readr::write_csv(gene.aov, file.path(processed.dir, 'gene-aov.csv'))
 readr::write_csv(log.expr.adj, file.path(processed.dir, 'log-expr-adj.csv'))
+readr::write_csv(log.expr    , file.path(processed.dir, 'log-expr.csv'))
 ```
 
 
