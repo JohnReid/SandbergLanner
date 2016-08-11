@@ -39,7 +39,7 @@ perplexity.factor <- .2
 # perplexity <- 10
 max.iters <- 1000
 #
-# Function to process tSNE output
+# Process tSNE output
 #
 tsne.as.df <- function(tsne) {
     res <- as.data.frame(tsne)
@@ -47,12 +47,11 @@ tsne.as.df <- function(tsne) {
     res
 }
 #
-# Function to perform tSNE as per Daniel's email
+# Perform tSNE as per Daniel's email
 #
 do.tsne <- function(mat, ...) {
     pca <- prcomp(mat, scale=T, center=T)
     pca.basis <- pca[['x']][,1:50]
-    # dim(pca.basis)
     tsne.as.df(tsne(
         pca.basis,
         whiten = FALSE,
