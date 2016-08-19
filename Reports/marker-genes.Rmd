@@ -22,6 +22,7 @@ Load libraries.
 ```{r loadPkgs, message = FALSE}
 library(ggplot2)
 library(ggthemes)
+petropoulos.colours <- scale_colour_manual(values = c("#00AE8A", "#CA8505", "#FF6C00", "#8586C3"))
 ```
 
 
@@ -92,12 +93,38 @@ ggplot(marker.expr, aes(x = log.rpkm.adj)) +
 Plot expression against inferred pseudotimes.
 ```{r exprVsPseudo}
 ggplot(marker.expr %>% left_join(cell.meta),
-       aes(x = pseudotime, y = log.rpkm.adj, colour = lineage)) +
+       aes(x = pseudotime,
+           y = log.rpkm.adj,
+           colour = lineage)) +
     geom_point(alpha = .5) +
     facet_wrap(~ gene) +
-    scale_colour_few() +
+    petropoulos.colours +
     theme_few()
-ggsave(file.path('..', 'Plots', 'marker-profiles.pdf'))
+ggsave(file.path('..', 'Plots', 'marker-pseudotime.pdf'))
+```
+
+Plot expression against capture times.
+```{r exprVsCapture}
+marker.capture <-
+    marker.expr %>%
+    left_join(cell.meta) %>%
+    group_by(gene, lineage, capture) %>%
+    summarise(
+        obstime = obstime[1],
+        mean.log.rpkm = mean(log.rpkm),
+        sd.log.rpkm = sd(log.rpkm))
+ggplot(marker.capture,
+       aes(x = obstime,
+           y = mean.log.rpkm,
+           colour = lineage,
+           ymin = mean.log.rpkm - sd.log.rpkm,
+           ymax = mean.log.rpkm + sd.log.rpkm)) +
+    geom_line() +
+    geom_errorbar() +
+    facet_wrap(~ gene) +
+    petropoulos.colours +
+    theme_few()
+ggsave(file.path('..', 'Plots', 'marker-capture.pdf'))
 ```
 
 
