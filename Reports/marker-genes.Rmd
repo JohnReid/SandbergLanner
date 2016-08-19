@@ -74,6 +74,7 @@ markers <- data.frame(
             'TE',
             'TE')))
 # devtools::use_data(markers, overwrite = TRUE)
+# readr::write_csv(markers, '../extdata/Processed/markers.csv')
 ```
 
 Plot distribution of expression values to determine thresholds of high
