@@ -97,6 +97,7 @@ ggplot(marker.expr %>% left_join(cell.meta),
            y = log.rpkm.adj,
            colour = lineage)) +
     geom_point(alpha = .5) +
+    geom_smooth() +
     facet_wrap(~ gene) +
     petropoulos.colours +
     theme_few()
