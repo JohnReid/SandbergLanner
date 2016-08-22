@@ -4,7 +4,7 @@ author: John Reid
 output: html_document
 params:
     pseudotime.lineage: "epiblast"
-    max.cells.per.capture: 5
+    max.cells.per.capture: 9
     max.genes: 50
     num.held.out: 50
     inf.method: 'vb'
