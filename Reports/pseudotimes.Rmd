@@ -4,6 +4,13 @@ author: John Reid
 output: html_document
 params:
     pseudotime.lineage: "epiblast"
+    max.cells.per.capture: 5
+    max.genes: 50
+    num.held.out: 50
+    inf.method: 'vb'
+    sigma.tau: .7
+    length.scale: 3
+    seed: 1
 ---
 
 `r date()`
@@ -16,6 +23,15 @@ rmarkdown::render('pseudotimes.Rmd')
 ```
 
 ```{r setup, echo = FALSE}
+pseudotime.lineage <- params$pseudotime.lineage
+max.cells.per.capture <- as.integer(params$max.cells.per.capture)
+max.genes <- as.integer(params$max.genes)
+num.held.out <- as.integer(params$num.held.out)
+inf.method <- params$inf.method
+sigma.tau <- as.numeric(params$sigma.tau)
+length.scale <- as.numeric(params$length.scale)
+seed <- as.integer(params$seed)
+set.seed(seed)
 knitr::opts_chunk$set(fig.width=18, fig.height=12)
 ```
 
@@ -36,13 +52,13 @@ devtools::load_all('/home/john/Dev/DeLorean')
 
 Retrieve cells in lineage `r pseudotime.lineage` and subsample.
 ```{r}
-pseudotime.lineage <- params$pseudotime.lineage
-max.cells.per.capture <- 4
 cells.lineage <-
     cell.meta %>%
+    mutate(capture = factor(capture, levels = levels(capture), ordered = TRUE)) %>%
     filter(lineage %in% c('none', pseudotime.lineage)) %>%
     group_by(capture) %>%
-    do(sample_n(., min(max.cells.per.capture, nrow(.))))
+    do(sample_n(., min(max.cells.per.capture, nrow(.)))) %>%
+    ungroup()
 ```
 Have `r nrow(cells.lineage)` cells.
 
@@ -52,7 +68,6 @@ Have `r nrow(cells.lineage)` cells.
 Analyse which genes vary most across the capture time points and select just
 the most variable.
 ```{r geneAov}
-max.genes <- 50
 .data <-
     cells.lineage %>%
     select(cell, embryonic.day) %>%
@@ -102,8 +117,8 @@ Examine data for empirical Bayes estimation of hyperparameters.
 model.name <- 'lowrank'
 dl <- estimate.hyper(
     dl,
-    sigma.tau = .7,
-    length.scale = 5,
+    sigma.tau = sigma.tau,
+    length.scale = length.scale,
     model.name=model.name)
 ```
 ```{r child=report.file("data")}
@@ -116,7 +131,6 @@ dl <- estimate.hyper(
 
 ```{r options}
 num.inits <- default.num.cores()
-inf.method <- 'vb'
 ```
 Define and compile the model, find the best initialisation, and fit the model.
 The model name is "`r model.name`", the inference method is "`r inf.method`"
@@ -159,6 +173,26 @@ Calculate expression profiles.
 dl <- make.predictions(dl)
 ```
 ```{r child=report.file("profiles")}
+```
+
+
+# Roughnesses
+
+Get the held out genes.
+```{r heldOut}
+held.out.genes <- .aov$gene[(max.genes+1):(max.genes+num.held.out)]
+held.out.expr <-
+    expr.m %>%
+    filter(gene %in% held.out.genes) %>%
+    filter(cell %in% cells.lineage$cell) %>%
+    acast(gene ~ cell, value.var = 'log.rpkm')
+held.out.expr <- held.out.expr[as.character(held.out.genes), as.character(cells.lineage$cell)]
+```
+
+Calculate and plot the roughnesses of the held out genes.
+```{r roughnesses}
+dl <- roughness.test(dl, held.out.expr)
+plot(dl, type = 'roughnesses')
 ```
 
 
