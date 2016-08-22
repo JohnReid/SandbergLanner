@@ -35,17 +35,24 @@ devtools::load_all('/home/john/Dev/DeLorean')
 
 # Filter cells to lineage
 
-Retrieve cells in lineage `r pseudotime.lineage`.
+Retrieve cells in lineage `r pseudotime.lineage` and subsample.
 ```{r}
-cells.lineage <- cell.meta %>% filter(lineage %in% c('none', pseudotime.lineage))
+max.cells.per.capture <- 4
+cells.lineage <-
+    cell.meta %>%
+    filter(lineage %in% c('none', pseudotime.lineage)) %>%
+    group_by(capture) %>%
+    do(sample_n(., min(max.cells.per.capture, nrow(.))))
 ```
 Have `r nrow(cells.lineage)` cells.
 
 
 # Find variable genes
 
-Analyse which genes vary across the time points
+Analyse which genes vary most across the capture time points and select just
+the most variable.
 ```{r geneAov}
+max.genes <- 50
 .data <-
     cells.lineage %>%
     select(cell, embryonic.day) %>%
@@ -56,7 +63,7 @@ Analyse which genes vary across the time points
     do(tidy(aov(log.rpkm ~ embryonic.day, .))) %>%
     ungroup() %>%
     arrange(p.value)
-genes.variable <- head(.aov, 500)$gene
+genes.variable <- head(.aov, max.genes)$gene
 genes.lineage <-
     gene.meta %>%
     filter(gene %in% genes.variable)
@@ -95,7 +102,7 @@ Examine data for empirical Bayes estimation of hyperparameters.
 model.name <- 'lowrank'
 dl <- estimate.hyper(
     dl,
-    sigma.tau = 2,
+    sigma.tau = .7,
     length.scale = 5,
     model.name=model.name)
 ```
