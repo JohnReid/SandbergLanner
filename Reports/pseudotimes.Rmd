@@ -12,7 +12,6 @@ params:
 #
 # Execute this section to render this document.
 #
-pseudotime.lineage <- 'epiblast'
 rmarkdown::render('pseudotimes.Rmd')
 ```
 
@@ -33,10 +32,11 @@ devtools::load_all('/home/john/Dev/DeLorean')
 ```
 
 
-# Filter cells to lineage
+# Filter cells in lineage
 
 Retrieve cells in lineage `r pseudotime.lineage` and subsample.
 ```{r}
+pseudotime.lineage <- params$pseudotime.lineage
 max.cells.per.capture <- 4
 cells.lineage <-
     cell.meta %>%
