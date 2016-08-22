@@ -143,9 +143,6 @@ dl <- find.good.ordering(dl, seriation.find.orderings)
 plot(dl, type='orderings')
 dl <- pseudotimes.from.orderings(dl, num.to.keep=num.inits)
 system.time(dl <- fit.model(dl, method=inf.method, num.inits=num.inits))
-if ("vb" == inf.method) {
-    pseudotimes.pair.plot(dl)
-}
 ```
 ```
 ```{r examConv, eval=("sample" == inf.method)}
