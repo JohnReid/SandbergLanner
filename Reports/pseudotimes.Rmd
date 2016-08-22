@@ -1,0 +1,163 @@
+---
+title: "Estimate pseudotimes for Sandberg and Lanner's data"
+author: John Reid
+output: html_document
+params:
+    pseudotime.lineage: "epiblast"
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+pseudotime.lineage <- 'epiblast'
+rmarkdown::render('pseudotimes.Rmd')
+```
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(reshape2)
+library(stringr)
+library(broom)
+devtools::load_all()
+devtools::load_all('/home/john/Dev/DeLorean')
+```
+
+
+# Filter cells to lineage
+
+Retrieve cells in lineage `r pseudotime.lineage`.
+```{r}
+cells.lineage <- cell.meta %>% filter(lineage %in% c('none', pseudotime.lineage))
+```
+Have `r nrow(cells.lineage)` cells.
+
+
+# Find variable genes
+
+Analyse which genes vary across the time points
+```{r geneAov}
+.data <-
+    cells.lineage %>%
+    select(cell, embryonic.day) %>%
+    left_join(expr.m)
+.aov <-
+    .data %>%
+    group_by(gene) %>%
+    do(tidy(aov(log.rpkm ~ embryonic.day, .))) %>%
+    ungroup() %>%
+    arrange(p.value)
+genes.variable <- head(.aov, 500)$gene
+genes.lineage <-
+    gene.meta %>%
+    filter(gene %in% genes.variable)
+```
+
+Build the expression matrix.
+```{r exprMat}
+expr <-
+    expr.m %>%
+    filter(gene %in% genes.lineage$gene) %>%
+    filter(cell %in% cells.lineage$cell) %>%
+    acast(gene ~ cell, value.var = 'log.rpkm')
+expr <- expr[as.character(genes.lineage$gene), as.character(cells.lineage$cell)]
+```
+
+Build the `DeLorean` object.
+```{r buildDL, eval=fit.model}
+dl <- de.lorean(
+    expr,
+    genes.lineage,
+    cells.lineage)
+```
+Re-level the cells by their capture time. This improves the ordering in later
+plots.
+```{r relevelCells}
+dl$cell.meta$cell <- factor(
+    dl$cell.meta$cell,
+    levels=(cells.lineage %>% arrange(capture))$cell)
+```
+
+
+# Estimate hyperparameters
+
+Examine data for empirical Bayes estimation of hyperparameters.
+```{r empiricalBayes, eval=fit.model}
+model.name <- 'lowrank'
+dl <- estimate.hyper(
+    dl,
+    sigma.tau = 2,
+    length.scale = 5,
+    model.name=model.name)
+```
+```{r child=report.file("data")}
+```
+```{r child=report.file("hyper-parameters")}
+```
+
+
+# Fit model
+
+```{r options}
+num.inits <- default.num.cores()
+inf.method <- 'vb'
+```
+Define and compile the model, find the best initialisation, and fit the model.
+The model name is "`r model.name`", the inference method is "`r inf.method`"
+with `r num.inits` initialisations, the seed is `r seed` and the data have
+`r dim(dl)[1]` genes and `r dim(dl)[2]` cells.
+```{r fitModel, eval=fit.model}
+dl <- prepare.for.stan(dl)
+dl <- compile.model(dl)
+dl <- find.good.ordering(dl, seriation.find.orderings)
+plot(dl, type='orderings')
+dl <- pseudotimes.from.orderings(dl, num.to.keep=num.inits)
+system.time(dl <- fit.model(dl, method=inf.method, num.inits=num.inits))
+if ("vb" == inf.method) {
+    pseudotimes.pair.plot(dl)
+}
+```
+```
+```{r examConv, eval=("sample" == inf.method)}
+dl <- examine.convergence(dl)
+```
+```{r child=report.file("convergence"), eval=("sample" == inf.method)}
+```
+
+
+# Analyse posterior
+
+Examine posterior and optimise best sample.
+```{r posterior}
+dl <- process.posterior(dl)
+dl <- analyse.noise.levels(dl)
+```
+```{r child=report.file("posterior")}
+```
+
+
+# Profiles
+
+Calculate expression profiles.
+```{r makePredictions}
+dl <- make.predictions(dl)
+```
+```{r child=report.file("profiles")}
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
