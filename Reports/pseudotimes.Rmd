@@ -4,11 +4,11 @@ author: John Reid
 output: html_document
 params:
     pseudotime.lineage: "epiblast"
-    max.cells.per.capture: 13
-    max.genes: 50
+    max.cells.per.capture: 500
+    max.genes: 500
     num.held.out: 50
     inf.method: 'vb'
-    sigma.tau: .7
+    sigma.tau: .25
     length.scale: 3
     seed: 1
 ---
@@ -19,7 +19,13 @@ params:
 #
 # Execute this section to render this document.
 #
-rmarkdown::render('pseudotimes.Rmd')
+# parameters = list(pseudotime.lineage = 'epiblast')
+parameters = list(pseudotime.lineage = 'trophectoderm')
+# parameters = list(pseudotime.lineage = 'primitive endoderm')
+rmarkdown::render(
+    'pseudotimes.Rmd',
+    params = parameters,
+    output_file = stringr::str_c('pseudotimes-', parameters$pseudotime.lineage, '.html'))
 ```
 
 ```{r setup, echo = FALSE}
@@ -49,6 +55,11 @@ devtools::load_all('/home/john/Dev/DeLorean')
 
 
 # Filter cells in lineage
+
+Show how many cells in each capture/lineage combination.
+```{r numCells}
+cell.meta %>% group_by(capture, lineage) %>% summarise(N = n())
+```
 
 Retrieve cells in lineage `r pseudotime.lineage` and subsample.
 ```{r}
