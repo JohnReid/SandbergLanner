@@ -1,0 +1,149 @@
+---
+title: "Analyse Lanner's data with ZINB-WaVE"
+author: John Reid
+output: html_document
+---
+
+`r date()`
+
+```{r render, eval = FALSE, echo = FALSE}
+#
+# Execute this section to render this document.
+#
+devtools::load_all()
+devtools::load_all('/home/john/src/zinbwave/')
+rmarkdown::render('zinb-wave.Rmd')
+```
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(fig.width=18, fig.height=12)
+```
+
+Load libraries.
+```{r loadPkgs, message = FALSE}
+library(ggplot2)
+library(ggthemes)
+library(dplyr)
+library(reshape2)
+library(stringr)
+library(biomaRt)
+library(Lanner)
+library(zinbwave)
+```
+
+
+```{r config, echo = FALSE, message = FALSE}
+#
+# Seed RNG
+set.seed(1)
+#
+# Configure ggplot2
+theme_set(theme_few())
+scale_colour_discrete <- function(...) scale_colour_few(...)
+scale_fill_discrete <- function(...) scale_fill_few(...)
+```
+
+
+# Counts
+
+```{r loadCounts}
+system.time(counts.df <- readr::read_tsv('../extdata/counts.txt', progress = FALSE))
+colnames(counts.df)[1] <- 'gene'
+counts <- as.matrix(counts.df[,2:ncol(counts.df)])
+rownames(counts) <- counts.df$gene
+```
+
+Remove genes with no counts
+```{r cleanGenes}
+nz_genes <- which(rowSums(counts) > 0)
+counts <- counts[nz_genes,]
+dim(counts)
+```
+
+
+# Most variable genes
+
+Only use most variable genes
+```{r useMostVarGenes}
+ngenes <- 50
+most_var_genes <- gene.variation$gene[1:ngenes]
+```
+
+
+# ZINB fit
+
+Gene covariates
+```{r geneCovar}
+mart <- useMart("ensembl")
+mart <- useDataset("hsapiens_gene_ensembl", mart = mart)
+# attrs <- listAttributes(mart)
+# attrs %>% filter(str_detect(name, '_gc_'))
+bm <- getBM(attributes=c('hgnc_symbol', 'start_position',
+                         'end_position', 'percentage_gene_gc_content'),
+            filters = 'hgnc_symbol',
+            values = most_var_genes,
+            mart = mart) %>%
+  rename(gene = hgnc_symbol) %>%
+  group_by(gene) %>%
+  summarise(
+    loglen = log10(mean(end_position - start_position)),
+    avg_gc = mean(percentage_gene_gc_content))
+gene.design <- model.matrix(~ avg_gc + loglen, bm)
+genes <- rownames(gene.design) <- bm$gene
+head(gene.design)
+```
+
+Cell covariates
+```{r cellCovar}
+cell.design <- model.matrix(~ treatment, cell.meta)
+cells <- rownames(cell.design) <- cell.meta$cell
+head(cell.design)
+```
+
+```{r zinbFit}
+most_var_counts <- counts[genes, cells]
+fit <- zinbFit(
+  most_var_counts,
+  X = cell.design,
+  V = gene.design,
+  ncores=7)
+```
+
+Examine cell sizes
+```{r cellParams}
+cellparams <- data.frame(
+    cell = cells,
+    intercept = fit@gamma_mu[1,],
+    avg_gc = fit@gamma_mu[2,],
+    loglen = fit@gamma_mu[3,]) %>%
+  left_join(cell.meta)
+ggplot(cellparams, aes(y = intercept, x = embryonic.day)) +
+  geom_boxplot()
+ggplot(cellparams, aes(y = avg_gc, x = embryonic.day)) +
+  geom_boxplot()
+ggplot(cellparams, aes(y = loglen, x = embryonic.day)) +
+  geom_boxplot()
+ggplot(cellparams, aes(x = intercept, y = avg_gc, colour = embryonic.day)) +
+  geom_point()
+ggplot(cellparams, aes(x = intercept, y = loglen, colour = embryonic.day)) +
+  geom_point()
+```
+
+Examine gene parameters
+```{r geneParams}
+geneparams <- data.frame(
+    gene = genes,
+    intercept = fit@beta_mu[1,],
+    treatment = fit@beta_mu[2,]) %>%
+  left_join(gene.meta)
+ggplot(geneparams, aes(x = intercept, y = treatment)) +
+  geom_point()
+```
+
+
+# Session information
+
+`r date()` on `r Sys.info()[['nodename']]`.
+```{r sessionInfo}
+devtools::session_info()
+```
